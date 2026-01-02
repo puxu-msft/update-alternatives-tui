@@ -358,8 +358,13 @@ class SubprocessExecutor(BaseExecutor):
         Returns:
             Original or truncated output
         """
-        if len(output.encode('utf-8')) > MAX_OUTPUT_SIZE:
-            truncated = output[:MAX_OUTPUT_SIZE // 2]
+        encoded = output.encode('utf-8')
+        if len(encoded) > MAX_OUTPUT_SIZE:
+            # Truncate to approximately half the max size in bytes
+            # We need to find a safe truncation point that doesn't break UTF-8
+            target_bytes = MAX_OUTPUT_SIZE // 2
+            # Decode only the first target_bytes, errors='ignore' handles partial chars
+            truncated = encoded[:target_bytes].decode('utf-8', errors='ignore')
             return f"{truncated}\n... [output truncated] ..."
         return output
     

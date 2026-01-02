@@ -8,6 +8,8 @@ to aid debugging and provide meaningful error messages to users.
 from dataclasses import dataclass, field
 from typing import Any
 
+from .constants import FORMAT_ERROR_PREVIEW_MAX_LENGTH, OUTPUT_PREVIEW_MAX_LENGTH
+
 
 class UpdateAlternativesError(Exception):
     """Base exception for all update-alternatives-tui errors.
@@ -211,7 +213,10 @@ class ParseError(UpdateAlternativesError):
             context["line_number"] = line_number
         if output:
             # Truncate long output
-            context["output_preview"] = output[:200] + "..." if len(output) > 200 else output
+            if len(output) > OUTPUT_PREVIEW_MAX_LENGTH:
+                context["output_preview"] = output[:OUTPUT_PREVIEW_MAX_LENGTH] + "..."
+            else:
+                context["output_preview"] = output
         super().__init__(message, context)
         self.output = output
         self.line_number = line_number
@@ -221,9 +226,10 @@ class InvalidFormatError(ParseError):
     """Raised when output format is unexpected or invalid."""
     
     def __init__(self, expected: str, actual: str = "") -> None:
+        actual_preview = actual[:FORMAT_ERROR_PREVIEW_MAX_LENGTH] if actual else ""
         super().__init__(
             f"Invalid format: expected {expected}",
-            context={"expected_format": expected, "actual": actual[:100] if actual else ""}
+            context={"expected_format": expected, "actual": actual_preview}
         )
 
 

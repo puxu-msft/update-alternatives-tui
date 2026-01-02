@@ -89,6 +89,10 @@ SEARCH_DEBOUNCE_MS: Final[int] = 300
 DIALOG_WIDTH: Final[int] = 60
 DIALOG_MAX_HEIGHT_PERCENT: Final[int] = 80
 
+# Output preview truncation
+OUTPUT_PREVIEW_MAX_LENGTH: Final[int] = 200
+FORMAT_ERROR_PREVIEW_MAX_LENGTH: Final[int] = 100
+
 
 # ============================================================================
 # Status and Mode Indicators

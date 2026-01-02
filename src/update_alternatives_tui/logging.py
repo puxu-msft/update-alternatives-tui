@@ -4,10 +4,12 @@ This module provides a configured logger and utilities for
 consistent logging throughout the application.
 """
 
+import functools
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .constants import APP_NAME, LogConfig, Paths
 
@@ -99,18 +101,25 @@ class LoggerMixin:
         return get_logger(f"{APP_NAME}.{self.__class__.__name__}")
 
 
-def log_call(func):
+def log_call[T: Callable[..., Any]](func: T) -> T:
     """Decorator to log function calls.
     
     This decorator logs function entry and exit, including
     arguments and return values at DEBUG level.
+    
+    Args:
+        func: The function to wrap with logging.
+        
+    Returns:
+        The wrapped function with logging.
     
     Example:
         @log_call
         def my_function(arg1, arg2):
             return result
     """
-    def wrapper(*args, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         func_logger = get_logger(f"{APP_NAME}.{func.__module__}")
         func_logger.debug(f"Calling {func.__name__} with args={args}, kwargs={kwargs}")
         try:
@@ -120,4 +129,4 @@ def log_call(func):
         except Exception as e:
             func_logger.exception(f"{func.__name__} raised {type(e).__name__}: {e}")
             raise
-    return wrapper
+    return wrapper  # type: ignore[return-value]

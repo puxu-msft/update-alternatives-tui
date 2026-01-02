@@ -18,6 +18,8 @@ from typing import (
     runtime_checkable,
 )
 
+from .constants import SEARCH_DEBOUNCE_MS
+
 if TYPE_CHECKING:
     from .models import (
         Alternative,
@@ -334,7 +336,7 @@ class UIConfig:
     theme: str = "dark"
     show_clock: bool = True
     confirm_destructive: bool = True
-    search_debounce_ms: int = 300
+    search_debounce_ms: int = SEARCH_DEBOUNCE_MS
 
 
 @dataclass
