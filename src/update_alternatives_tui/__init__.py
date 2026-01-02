@@ -38,9 +38,7 @@ from .models import (
     AlternativeGroup,
     AlternativeStatus,
     CommandResult,
-    HistoryEntry,
     InstallRequest,
-    OperationType,
     SelectionInfo,
     SlaveLink,
 )
@@ -49,14 +47,10 @@ from .models import (
 # Executor - Command execution
 # ============================================================================
 from .executor import (
-    AsyncSubprocessExecutor,
     BaseExecutor,
     ExecutionResult,
-    ExecutionStats,
     MockExecutor,
     SubprocessExecutor,
-    executor_context,
-    with_retry,
 )
 
 # ============================================================================
@@ -80,23 +74,16 @@ from .service import AlternativesService
 # Exceptions - Error types
 # ============================================================================
 from .exceptions import (
-    AlternativeExistsError,
-    AlternativeNotFoundError,
     CommandNotFoundError,
     CommandTimeoutError,
-    ConfigError,
     EmptyValueError,
-    ErrorCollection,
     ExecutionError,
     InvalidFormatError,
     InvalidValueError,
     ParseError,
     PermissionDeniedError,
-    ServiceError,
-    UIError,
     UpdateAlternativesError,
     ValidationError,
-    WidgetError,
 )
 
 # ============================================================================
@@ -140,21 +127,15 @@ __all__ = [
     "AlternativeGroup",
     "AlternativeStatus",
     "CommandResult",
-    "HistoryEntry",
     "InstallRequest",
-    "OperationType",
     "SelectionInfo",
     "SlaveLink",
     
     # Executor
-    "AsyncSubprocessExecutor",
     "BaseExecutor",
     "ExecutionResult",
-    "ExecutionStats",
     "MockExecutor",
     "SubprocessExecutor",
-    "executor_context",
-    "with_retry",
     
     # Parser
     "OutputParser",
@@ -168,23 +149,16 @@ __all__ = [
     "Cache",
     
     # Exceptions
-    "AlternativeExistsError",
-    "AlternativeNotFoundError",
     "CommandNotFoundError",
     "CommandTimeoutError",
-    "ConfigError",
     "EmptyValueError",
-    "ErrorCollection",
     "ExecutionError",
     "InvalidFormatError",
     "InvalidValueError",
     "ParseError",
     "PermissionDeniedError",
-    "ServiceError",
-    "UIError",
     "UpdateAlternativesError",
     "ValidationError",
-    "WidgetError",
     
     # Widgets
     "AlternativeDetailPanel",

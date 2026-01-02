@@ -1,13 +1,11 @@
 """Service layer for update-alternatives management.
 
 This module provides the main business logic for interacting with
-update-alternatives, including caching, batch operations, and
-proper error handling.
+update-alternatives, including caching and proper error handling.
 """
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from .cache import Cache
@@ -23,9 +21,7 @@ from .models import (
     AlternativeGroup,
     AlternativeStatus,
     CommandResult,
-    HistoryEntry,
     InstallRequest,
-    OperationType,
     SelectionInfo,
 )
 from .parser import OutputParser
@@ -85,10 +81,6 @@ class AlternativesService(LoggerMixin):
         self._cache_enabled = enable_cache
         self._selections_cache: Cache[dict[str, SelectionInfo]] = Cache()
         self._details_cache: Cache[AlternativeGroup] = Cache()
-        
-        # History tracking
-        self._history: list[HistoryEntry] = []
-        self._max_history = 100
     
     # ========================================================================
     # Internal Helpers
@@ -240,37 +232,6 @@ class AlternativesService(LoggerMixin):
             self._details_cache.delete(name)
         else:
             self._details_cache.clear()
-    
-    def _add_history(
-        self,
-        operation: OperationType,
-        name: str,
-        old_value: str | None,
-        new_value: str | None,
-        success: bool
-    ) -> None:
-        """Add an entry to operation history.
-        
-        Args:
-            operation: Type of operation
-            name: Alternative name
-            old_value: Previous value
-            new_value: New value
-            success: Whether operation succeeded
-        """
-        entry = HistoryEntry(
-            timestamp=time.time(),
-            operation=operation,
-            name=name,
-            old_value=old_value,
-            new_value=new_value,
-            success=success
-        )
-        self._history.append(entry)
-        
-        # Trim history if too long
-        if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
     
     # ========================================================================
     # Query Operations (no sudo needed)
@@ -477,22 +438,9 @@ class AlternativesService(LoggerMixin):
         if not path:
             return CommandResult.error(ErrorMessages.EMPTY_PATH)
         
-        # Get current value for history
-        old_path = self.get_current_path(name)
-        
         result = self._execute(["--set", name, path], need_sudo=True)
-        success = result.success
         
-        # Record history
-        self._add_history(
-            OperationType.SET,
-            name,
-            old_path,
-            path if success else None,
-            success
-        )
-        
-        if success:
+        if result.success:
             self._invalidate_cache(name)
             message = SuccessMessages.SET_ALTERNATIVE.format(name=name, path=path)
             return CommandResult.ok(message)
@@ -519,20 +467,9 @@ class AlternativesService(LoggerMixin):
         if not name:
             return CommandResult.error(ErrorMessages.EMPTY_NAME)
         
-        old_path = self.get_current_path(name)
-        
         result = self._execute(["--auto", name], need_sudo=True)
-        success = result.success
         
-        self._add_history(
-            OperationType.AUTO,
-            name,
-            old_path,
-            "auto" if success else None,
-            success
-        )
-        
-        if success:
+        if result.success:
             self._invalidate_cache(name)
             message = SuccessMessages.SET_AUTO.format(name=name)
             return CommandResult.ok(message)
@@ -558,17 +495,8 @@ class AlternativesService(LoggerMixin):
         """
         args = request.to_args()
         result = self._execute(args, need_sudo=True)
-        success = result.success
         
-        self._add_history(
-            OperationType.INSTALL,
-            request.name,
-            None,
-            request.path if success else None,
-            success
-        )
-        
-        if success:
+        if result.success:
             self._invalidate_cache(request.name)
             message = SuccessMessages.INSTALLED.format(
                 name=request.name,
@@ -602,17 +530,8 @@ class AlternativesService(LoggerMixin):
             return CommandResult.error(ErrorMessages.EMPTY_PATH)
         
         result = self._execute(["--remove", name, path], need_sudo=True)
-        success = result.success
         
-        self._add_history(
-            OperationType.REMOVE,
-            name,
-            path,
-            None if success else path,
-            success
-        )
-        
-        if success:
+        if result.success:
             self._invalidate_cache(name)
             message = SuccessMessages.REMOVED.format(name=name, path=path)
             return CommandResult.ok(message)
@@ -640,17 +559,8 @@ class AlternativesService(LoggerMixin):
             return CommandResult.error(ErrorMessages.EMPTY_NAME)
         
         result = self._execute(["--remove-all", name], need_sudo=True)
-        success = result.success
         
-        self._add_history(
-            OperationType.REMOVE_ALL,
-            name,
-            "all",
-            None,
-            success
-        )
-        
-        if success:
+        if result.success:
             self._invalidate_cache(name)
             message = SuccessMessages.REMOVED_ALL.format(name=name)
             return CommandResult.ok(message)
@@ -706,34 +616,8 @@ class AlternativesService(LoggerMixin):
     # ========================================================================
     # History and Statistics
     # ========================================================================
-    
-    def get_history(
-        self,
-        limit: int | None = None,
-        operation: OperationType | None = None
-    ) -> list[HistoryEntry]:
-        """Get operation history.
-        
-        Args:
-            limit: Maximum number of entries to return
-            operation: Filter by operation type
-            
-        Returns:
-            List of history entries (newest first)
-        """
-        entries = list(reversed(self._history))
-        
-        if operation:
-            entries = [e for e in entries if e.operation == operation]
-        
-        if limit:
-            entries = entries[:limit]
-        
-        return entries
-    
-    def clear_history(self) -> None:
-        """Clear operation history."""
-        self._history.clear()
+    # Cache Management
+    # ========================================================================
     
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics.

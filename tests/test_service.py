@@ -4,7 +4,6 @@ Tests cover:
 - Service initialization
 - Cache behavior
 - Alternative operations
-- History tracking
 - Error handling
 """
 

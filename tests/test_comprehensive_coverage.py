@@ -2,9 +2,7 @@
 
 This file adds tests for previously uncovered scenarios including:
 - Service batch operations
-- Service history tracking
 - Service cache statistics
-- Executor retry logic
 - Parser edge cases
 - Error message formatting
 """
@@ -24,7 +22,6 @@ from update_alternatives_tui.executor import (
 from update_alternatives_tui.models import (
     AlternativeStatus,
     InstallRequest,
-    OperationType,
 )
 from update_alternatives_tui.parser import OutputParser
 
@@ -217,90 +214,6 @@ class TestServiceBatchOperations:
 
 
 # ============================================================================
-# Service History Tests
-# ============================================================================
-
-class TestServiceHistory:
-    """Tests for service operation history tracking."""
-
-    @pytest.fixture
-    def mock_executor(self) -> MockExecutor:
-        """Provide configured mock executor."""
-        executor = MockExecutor()
-        executor.set_response(["--get-selections"], ExecutionResult.ok(SELECTIONS_OUTPUT))
-        executor.set_response(["--set", "editor", "/usr/bin/nano"], ExecutionResult.ok(""))
-        executor.set_response(["--auto", "editor"], ExecutionResult.ok(""))
-        return executor
-
-    @pytest.fixture
-    def service(self, mock_executor: MockExecutor) -> AlternativesService:
-        """Provide service instance."""
-        return AlternativesService(executor=mock_executor)
-
-    def test_history_empty_initially(self, service: AlternativesService) -> None:
-        """Test history is empty initially."""
-        history = service.get_history()
-        assert history == []
-
-    def test_history_records_set_operation(self, service: AlternativesService) -> None:
-        """Test that set operations are recorded."""
-        service.set_alternative("editor", "/usr/bin/nano")
-        
-        history = service.get_history()
-        assert len(history) == 1
-        assert history[0].operation == OperationType.SET
-        assert history[0].name == "editor"
-        assert history[0].success is True
-
-    def test_history_records_auto_operation(self, service: AlternativesService) -> None:
-        """Test that auto operations are recorded."""
-        service.set_auto("editor")
-        
-        history = service.get_history()
-        assert len(history) == 1
-        assert history[0].operation == OperationType.AUTO
-        assert history[0].name == "editor"
-
-    def test_history_limit(self, service: AlternativesService) -> None:
-        """Test history limit parameter."""
-        service.set_alternative("editor", "/usr/bin/nano")
-        service.set_auto("editor")
-        
-        history = service.get_history(limit=1)
-        assert len(history) == 1
-
-    def test_history_filter_by_operation(self, service: AlternativesService) -> None:
-        """Test filtering history by operation type."""
-        service.set_alternative("editor", "/usr/bin/nano")
-        service.set_auto("editor")
-        
-        set_history = service.get_history(operation=OperationType.SET)
-        assert len(set_history) == 1
-        assert set_history[0].operation == OperationType.SET
-        
-        auto_history = service.get_history(operation=OperationType.AUTO)
-        assert len(auto_history) == 1
-        assert auto_history[0].operation == OperationType.AUTO
-
-    def test_history_newest_first(self, service: AlternativesService) -> None:
-        """Test that history returns newest first."""
-        service.set_alternative("editor", "/usr/bin/nano")
-        service.set_auto("editor")
-        
-        history = service.get_history()
-        assert history[0].operation == OperationType.AUTO  # Most recent
-        assert history[1].operation == OperationType.SET   # Older
-
-    def test_clear_history(self, service: AlternativesService) -> None:
-        """Test clearing history."""
-        service.set_alternative("editor", "/usr/bin/nano")
-        service.clear_history()
-        
-        history = service.get_history()
-        assert history == []
-
-
-# ============================================================================
 # Service Cache Statistics Tests
 # ============================================================================
 
@@ -401,27 +314,6 @@ class TestServiceInstall:
         result = service.install(request)
         
         assert result.success is False
-
-    def test_install_records_history(
-        self, service: AlternativesService, mock_executor: MockExecutor
-    ) -> None:
-        """Test that install records history."""
-        mock_executor.set_response(
-            ["--install", "/usr/bin/editor", "editor", "/usr/bin/myeditor", "100"],
-            ExecutionResult.ok(""),
-        )
-        
-        request = InstallRequest(
-            name="editor",
-            link="/usr/bin/editor",
-            path="/usr/bin/myeditor",
-            priority=100,
-        )
-        service.install(request)
-        
-        history = service.get_history()
-        assert len(history) == 1
-        assert history[0].operation == OperationType.INSTALL
 
 
 # ============================================================================

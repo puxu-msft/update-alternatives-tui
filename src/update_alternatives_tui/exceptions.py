@@ -1,11 +1,21 @@
 """Custom exceptions for update-alternatives-tui.
 
-This module defines a hierarchy of exceptions for precise error handling
-throughout the application. Each exception includes contextual information
-to aid debugging and provide meaningful error messages to users.
+This module defines a hierarchy of exceptions for precise error handling.
+Each exception includes contextual information for debugging.
+
+Exception Hierarchy:
+    UpdateAlternativesError (base)
+    ├── ValidationError
+    │   ├── EmptyValueError
+    │   └── InvalidValueError
+    ├── ExecutionError
+    │   ├── CommandNotFoundError
+    │   ├── PermissionDeniedError
+    │   └── CommandTimeoutError
+    └── ParseError
+        └── InvalidFormatError
 """
 
-from dataclasses import dataclass, field
 from typing import Any
 
 from .constants import FORMAT_ERROR_PREVIEW_MAX_LENGTH, OUTPUT_PREVIEW_MAX_LENGTH
@@ -13,9 +23,6 @@ from .constants import FORMAT_ERROR_PREVIEW_MAX_LENGTH, OUTPUT_PREVIEW_MAX_LENGT
 
 class UpdateAlternativesError(Exception):
     """Base exception for all update-alternatives-tui errors.
-    
-    All custom exceptions in this package inherit from this class,
-    allowing for broad exception catching when needed.
     
     Attributes:
         message: Human-readable error description
@@ -42,11 +49,7 @@ class UpdateAlternativesError(Exception):
 # ============================================================================
 
 class ValidationError(UpdateAlternativesError):
-    """Raised when data validation fails.
-    
-    This is used for validating user input, model data, and
-    configuration values.
-    """
+    """Raised when data validation fails."""
     
     def __init__(
         self,
@@ -69,11 +72,7 @@ class EmptyValueError(ValidationError):
     """Raised when a required value is empty or missing."""
     
     def __init__(self, field: str) -> None:
-        super().__init__(
-            f"{field} cannot be empty",
-            field=field,
-            value=""
-        )
+        super().__init__(f"{field} cannot be empty", field=field, value="")
 
 
 class InvalidValueError(ValidationError):
@@ -137,10 +136,7 @@ class PermissionDeniedError(ExecutionError):
 
 
 class CommandTimeoutError(ExecutionError):
-    """Raised when command execution times out.
-    
-    Note: Named CommandTimeoutError to avoid conflict with built-in TimeoutError.
-    """
+    """Raised when command execution times out."""
     
     def __init__(self, command: list[str], timeout: int) -> None:
         super().__init__(
@@ -148,50 +144,6 @@ class CommandTimeoutError(ExecutionError):
             command=command,
             context={"timeout": timeout}
         )
-
-
-# ============================================================================
-# Service Exceptions
-# ============================================================================
-
-class ServiceError(UpdateAlternativesError):
-    """Base exception for service-layer errors."""
-    pass
-
-
-class AlternativeNotFoundError(ServiceError):
-    """Raised when an alternative is not found."""
-    
-    def __init__(self, name: str) -> None:
-        super().__init__(
-            f"Alternative not found: {name}",
-            context={"alternative_name": name}
-        )
-        self.name = name
-
-
-class AlternativeExistsError(ServiceError):
-    """Raised when trying to create an alternative that already exists."""
-    
-    def __init__(self, name: str, path: str) -> None:
-        super().__init__(
-            f"Alternative already exists: {path} in {name}",
-            context={"alternative_name": name, "path": path}
-        )
-        self.name = name
-        self.path = path
-
-
-class InvalidAlternativeError(ServiceError):
-    """Raised when alternative data is invalid."""
-    
-    def __init__(self, name: str, reason: str) -> None:
-        super().__init__(
-            f"Invalid alternative '{name}': {reason}",
-            context={"alternative_name": name, "reason": reason}
-        )
-        self.name = name
-        self.reason = reason
 
 
 # ============================================================================
@@ -212,7 +164,6 @@ class ParseError(UpdateAlternativesError):
         if line_number is not None:
             context["line_number"] = line_number
         if output:
-            # Truncate long output
             if len(output) > OUTPUT_PREVIEW_MAX_LENGTH:
                 context["output_preview"] = output[:OUTPUT_PREVIEW_MAX_LENGTH] + "..."
             else:
@@ -231,82 +182,3 @@ class InvalidFormatError(ParseError):
             f"Invalid format: expected {expected}",
             context={"expected_format": expected, "actual": actual_preview}
         )
-
-
-# ============================================================================
-# Configuration Exceptions
-# ============================================================================
-
-class ConfigError(UpdateAlternativesError):
-    """Raised when configuration is invalid or cannot be loaded."""
-    pass
-
-
-class ConfigFileNotFoundError(ConfigError):
-    """Raised when configuration file is not found."""
-    
-    def __init__(self, path: str) -> None:
-        super().__init__(
-            f"Configuration file not found: {path}",
-            context={"path": path}
-        )
-        self.path = path
-
-
-# ============================================================================
-# UI Exceptions
-# ============================================================================
-
-class UIError(UpdateAlternativesError):
-    """Base exception for UI-related errors."""
-    pass
-
-
-class WidgetError(UIError):
-    """Raised when a widget operation fails."""
-    
-    def __init__(self, widget: str, operation: str, reason: str = "") -> None:
-        message = f"Widget error in {widget} during {operation}"
-        if reason:
-            message = f"{message}: {reason}"
-        super().__init__(
-            message,
-            context={"widget": widget, "operation": operation}
-        )
-
-
-# ============================================================================
-# Error Collection
-# ============================================================================
-
-@dataclass
-class ErrorCollection:
-    """Collection of multiple errors for batch operations.
-    
-    Useful when performing batch operations where multiple
-    items may fail, and we want to report all failures.
-    """
-    errors: list[UpdateAlternativesError] = field(default_factory=list)
-    
-    def add(self, error: UpdateAlternativesError) -> None:
-        """Add an error to the collection."""
-        self.errors.append(error)
-    
-    def has_errors(self) -> bool:
-        """Check if there are any errors."""
-        return len(self.errors) > 0
-    
-    def __len__(self) -> int:
-        return len(self.errors)
-    
-    def __iter__(self):
-        return iter(self.errors)
-    
-    def raise_if_errors(self) -> None:
-        """Raise a combined error if there are any errors."""
-        if self.has_errors():
-            messages = [str(e) for e in self.errors]
-            raise UpdateAlternativesError(
-                f"Multiple errors occurred ({len(self.errors)} total)",
-                context={"errors": messages}
-            )

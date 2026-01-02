@@ -1,10 +1,10 @@
 """Tests for update_alternatives_tui.executor module.
 
 Tests cover:
+- ExecutionResult dataclass
 - Command execution basics
 - Error handling
 - Mock executor behavior
-- Execution statistics
 """
 
 from __future__ import annotations
@@ -16,8 +16,6 @@ from update_alternatives_tui.executor import (
     SubprocessExecutor,
     MockExecutor,
     ExecutionResult,
-    ExecutionStats,
-    executor_context,
 )
 from update_alternatives_tui.exceptions import (
     CommandNotFoundError,
@@ -93,62 +91,24 @@ class TestExecutionResult:
         assert result.stderr == "error message"
         assert result.return_code == 2
 
-
-class TestExecutionStats:
-    """Tests for ExecutionStats class."""
-
-    def test_initial_values(self) -> None:
-        """Test initial statistics values."""
-        stats = ExecutionStats()
-        assert stats.total_calls == 0
-        assert stats.successful_calls == 0
-        assert stats.failed_calls == 0
-        assert stats.success_rate == 100.0
-
-    def test_record_successful_call(self) -> None:
-        """Test recording successful call."""
-        stats = ExecutionStats()
-        result = ExecutionResult.ok("output", duration=0.5)
-        stats.record_call(result)
+    def test_equality(self) -> None:
+        """Test equality comparison."""
+        result1 = ExecutionResult(0, "out", "")
+        result2 = ExecutionResult(0, "out", "")
+        result3 = ExecutionResult(1, "out", "")
         
-        assert stats.total_calls == 1
-        assert stats.successful_calls == 1
-        assert stats.failed_calls == 0
+        assert result1 == result2
+        assert result1 != result3
 
-    def test_record_failed_call(self) -> None:
-        """Test recording failed call."""
-        stats = ExecutionStats()
-        result = ExecutionResult.error("error", duration=0.1)
-        stats.record_call(result)
+    def test_hashable(self) -> None:
+        """Test that ExecutionResult is hashable."""
+        result = ExecutionResult(0, "out", "")
+        # Should not raise
+        hash(result)
         
-        assert stats.total_calls == 1
-        assert stats.successful_calls == 0
-        assert stats.failed_calls == 1
-
-    def test_success_rate(self) -> None:
-        """Test success rate calculation."""
-        stats = ExecutionStats()
-        stats.record_call(ExecutionResult.ok())
-        stats.record_call(ExecutionResult.ok())
-        stats.record_call(ExecutionResult.error("err"))
-        
-        assert stats.success_rate == pytest.approx(66.67, rel=0.01)
-
-    def test_average_duration(self) -> None:
-        """Test average duration calculation."""
-        stats = ExecutionStats()
-        stats.record_call(ExecutionResult.ok(duration=1.0))
-        stats.record_call(ExecutionResult.ok(duration=2.0))
-        
-        assert stats.average_duration == 1.5
-
-    def test_reset(self) -> None:
-        """Test reset method."""
-        stats = ExecutionStats()
-        stats.record_call(ExecutionResult.ok())
-        stats.reset()
-        
-        assert stats.total_calls == 0
+        # Can be used in sets
+        results = {result, ExecutionResult(0, "out", "")}
+        assert len(results) == 1
 
 
 class TestMockExecutor:
@@ -285,31 +245,6 @@ class TestSubprocessExecutor:
         
         with pytest.raises(CommandNotFoundError):
             executor.execute([])
-
-    def test_stats_tracking(self) -> None:
-        """Test that statistics are tracked."""
-        executor = SubprocessExecutor(base_command="echo")
-        executor.execute(["test"])
-        
-        assert executor.stats.total_calls == 1
-
-
-class TestExecutorContext:
-    """Tests for executor_context context manager."""
-
-    def test_context_manager_basic(self) -> None:
-        """Test basic context manager usage."""
-        with executor_context(SubprocessExecutor, base_command="echo") as executor:
-            assert executor is not None
-            result = executor.execute(["test"])
-            assert result.success is True
-
-    def test_context_manager_with_mock(self) -> None:
-        """Test context manager with MockExecutor."""
-        with executor_context(MockExecutor) as executor:
-            executor.set_response(["test"], ExecutionResult.ok("mocked"))
-            result = executor.execute(["test"])
-            assert result.stdout == "mocked"
 
 
 class TestExecutorProtocol:

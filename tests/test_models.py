@@ -17,9 +17,7 @@ from update_alternatives_tui.models import (
     AlternativeGroup,
     AlternativeStatus,
     CommandResult,
-    HistoryEntry,
     InstallRequest,
-    OperationType,
     SelectionInfo,
     SlaveLink,
 )
@@ -480,50 +478,3 @@ class TestInstallRequest:
         )
         request.add_slave("man", "/usr/share/man/man1/editor.1", "/usr/share/man/man1/vim.1")
         assert len(request.slaves) == 1
-
-
-class TestHistoryEntry:
-    """Tests for HistoryEntry dataclass."""
-
-    def test_creation(self) -> None:
-        """Test basic creation."""
-        import time
-        entry = HistoryEntry(
-            timestamp=time.time(),
-            operation=OperationType.SET,
-            name="editor",
-            old_value="/usr/bin/nano",
-            new_value="/usr/bin/vim",
-            success=True,
-        )
-        assert entry.operation == OperationType.SET
-        assert entry.name == "editor"
-        assert entry.old_value == "/usr/bin/nano"
-        assert entry.new_value == "/usr/bin/vim"
-        assert entry.success is True
-
-    def test_frozen(self) -> None:
-        """Test that HistoryEntry is immutable."""
-        import time
-        entry = HistoryEntry(
-            timestamp=time.time(),
-            operation=OperationType.AUTO,
-            name="test",
-            old_value=None,
-            new_value="auto",
-            success=True,
-        )
-        with pytest.raises(FrozenInstanceError):
-            entry.name = "changed"  # type: ignore[misc]
-
-
-class TestOperationType:
-    """Tests for OperationType enum."""
-
-    def test_all_operations_exist(self) -> None:
-        """Test all expected operation types exist."""
-        assert OperationType.SET
-        assert OperationType.AUTO
-        assert OperationType.INSTALL
-        assert OperationType.REMOVE
-        assert OperationType.REMOVE_ALL

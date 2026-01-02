@@ -4,11 +4,7 @@ Tests cover:
 - Base exception class (UpdateAlternativesError)
 - Validation exceptions
 - Execution exceptions
-- Service exceptions
 - Parser exceptions
-- Configuration exceptions
-- UI exceptions
-- ErrorCollection utility
 """
 
 from __future__ import annotations
@@ -27,22 +23,9 @@ from update_alternatives_tui.exceptions import (
     CommandNotFoundError,
     PermissionDeniedError,
     CommandTimeoutError,
-    # Service
-    ServiceError,
-    AlternativeNotFoundError,
-    AlternativeExistsError,
-    InvalidAlternativeError,
     # Parser
     ParseError,
     InvalidFormatError,
-    # Config
-    ConfigError,
-    ConfigFileNotFoundError,
-    # UI
-    UIError,
-    WidgetError,
-    # Collection
-    ErrorCollection,
 )
 
 
@@ -264,57 +247,6 @@ class TestCommandTimeoutError:
 
 
 # ============================================================================
-# Service Exception Tests
-# ============================================================================
-
-
-class TestServiceError:
-    """Tests for ServiceError."""
-
-    def test_inheritance(self) -> None:
-        """Test inheritance chain."""
-        error = ServiceError("Service failed")
-        assert isinstance(error, UpdateAlternativesError)
-
-
-class TestAlternativeNotFoundError:
-    """Tests for AlternativeNotFoundError."""
-
-    def test_creation(self) -> None:
-        """Test error creation."""
-        error = AlternativeNotFoundError("nonexistent")
-        assert "nonexistent" in str(error)
-        assert "not found" in str(error).lower()
-        assert error.name == "nonexistent"
-        assert error.context["alternative_name"] == "nonexistent"
-
-
-class TestAlternativeExistsError:
-    """Tests for AlternativeExistsError."""
-
-    def test_creation(self) -> None:
-        """Test error creation."""
-        error = AlternativeExistsError("editor", "/usr/bin/vim")
-        assert "editor" in str(error)
-        assert "/usr/bin/vim" in str(error)
-        assert "exists" in str(error).lower()
-        assert error.name == "editor"
-        assert error.path == "/usr/bin/vim"
-
-
-class TestInvalidAlternativeError:
-    """Tests for InvalidAlternativeError."""
-
-    def test_creation(self) -> None:
-        """Test error creation."""
-        error = InvalidAlternativeError("editor", "path is not executable")
-        assert "editor" in str(error)
-        assert "path is not executable" in str(error)
-        assert error.name == "editor"
-        assert error.reason == "path is not executable"
-
-
-# ============================================================================
 # Parser Exception Tests
 # ============================================================================
 
@@ -363,129 +295,6 @@ class TestInvalidFormatError:
 
 
 # ============================================================================
-# Config Exception Tests
-# ============================================================================
-
-
-class TestConfigError:
-    """Tests for ConfigError."""
-
-    def test_inheritance(self) -> None:
-        """Test inheritance chain."""
-        error = ConfigError("Config invalid")
-        assert isinstance(error, UpdateAlternativesError)
-
-
-class TestConfigFileNotFoundError:
-    """Tests for ConfigFileNotFoundError."""
-
-    def test_creation(self) -> None:
-        """Test error creation."""
-        error = ConfigFileNotFoundError("/etc/myconfig.toml")
-        assert "/etc/myconfig.toml" in str(error)
-        assert "not found" in str(error).lower()
-        assert error.path == "/etc/myconfig.toml"
-
-
-# ============================================================================
-# UI Exception Tests
-# ============================================================================
-
-
-class TestUIError:
-    """Tests for UIError."""
-
-    def test_inheritance(self) -> None:
-        """Test inheritance chain."""
-        error = UIError("UI failed")
-        assert isinstance(error, UpdateAlternativesError)
-
-
-class TestWidgetError:
-    """Tests for WidgetError."""
-
-    def test_basic_creation(self) -> None:
-        """Test basic creation."""
-        error = WidgetError("StatusWidget", "render")
-        assert "StatusWidget" in str(error)
-        assert "render" in str(error)
-
-    def test_with_reason(self) -> None:
-        """Test with reason."""
-        error = WidgetError("DataTable", "update", "no data available")
-        assert "no data available" in str(error)
-
-
-# ============================================================================
-# ErrorCollection Tests
-# ============================================================================
-
-
-class TestErrorCollection:
-    """Tests for ErrorCollection utility."""
-
-    def test_empty_collection(self) -> None:
-        """Test empty collection."""
-        collection = ErrorCollection()
-        assert len(collection) == 0
-        assert collection.has_errors() is False
-
-    def test_add_errors(self) -> None:
-        """Test adding errors."""
-        collection = ErrorCollection()
-        collection.add(UpdateAlternativesError("Error 1"))
-        collection.add(UpdateAlternativesError("Error 2"))
-        
-        assert len(collection) == 2
-        assert collection.has_errors() is True
-
-    def test_iteration(self) -> None:
-        """Test iterating over errors."""
-        collection = ErrorCollection()
-        errors = [
-            UpdateAlternativesError("Error 1"),
-            ValidationError("Error 2"),
-        ]
-        for e in errors:
-            collection.add(e)
-        
-        collected = list(collection)
-        assert len(collected) == 2
-        assert collected[0].message == "Error 1"
-
-    def test_raise_if_errors_empty(self) -> None:
-        """Test raise_if_errors with no errors."""
-        collection = ErrorCollection()
-        # Should not raise
-        collection.raise_if_errors()
-
-    def test_raise_if_errors_with_errors(self) -> None:
-        """Test raise_if_errors with errors."""
-        collection = ErrorCollection()
-        collection.add(UpdateAlternativesError("Error 1"))
-        collection.add(UpdateAlternativesError("Error 2"))
-        
-        with pytest.raises(UpdateAlternativesError) as exc_info:
-            collection.raise_if_errors()
-        
-        assert "2 total" in str(exc_info.value)
-        assert "errors" in exc_info.value.context
-
-    def test_mixed_error_types(self) -> None:
-        """Test with mixed error types."""
-        collection = ErrorCollection()
-        collection.add(ValidationError("validation failed"))
-        collection.add(ExecutionError("execution failed"))
-        collection.add(ParseError("parse failed"))
-        
-        assert len(collection) == 3
-        
-        # All should be UpdateAlternativesError
-        for error in collection:
-            assert isinstance(error, UpdateAlternativesError)
-
-
-# ============================================================================
 # Exception Hierarchy Tests
 # ============================================================================
 
@@ -503,16 +312,8 @@ class TestExceptionHierarchy:
             CommandNotFoundError,
             PermissionDeniedError,
             CommandTimeoutError,
-            ServiceError,
-            AlternativeNotFoundError,
-            AlternativeExistsError,
-            InvalidAlternativeError,
             ParseError,
             InvalidFormatError,
-            ConfigError,
-            ConfigFileNotFoundError,
-            UIError,
-            WidgetError,
         ]
         
         for cls in exception_classes:
@@ -533,3 +334,30 @@ class TestExceptionHierarchy:
             raise CommandNotFoundError()
         except ExecutionError as e:
             assert isinstance(e, CommandNotFoundError)
+
+    def test_validation_hierarchy(self) -> None:
+        """Test validation error hierarchy."""
+        errors = [
+            EmptyValueError("field"),
+            InvalidValueError("field", "value"),
+        ]
+        for error in errors:
+            assert isinstance(error, ValidationError)
+            assert isinstance(error, UpdateAlternativesError)
+
+    def test_execution_hierarchy(self) -> None:
+        """Test execution error hierarchy."""
+        errors = [
+            CommandNotFoundError(),
+            PermissionDeniedError("operation"),
+            CommandTimeoutError(["cmd"], 30),
+        ]
+        for error in errors:
+            assert isinstance(error, ExecutionError)
+            assert isinstance(error, UpdateAlternativesError)
+
+    def test_parse_hierarchy(self) -> None:
+        """Test parse error hierarchy."""
+        error = InvalidFormatError("format")
+        assert isinstance(error, ParseError)
+        assert isinstance(error, UpdateAlternativesError)

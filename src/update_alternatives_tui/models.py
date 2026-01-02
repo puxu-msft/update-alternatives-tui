@@ -8,7 +8,7 @@ where appropriate.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from functools import total_ordering
 from typing import TYPE_CHECKING, Any, Iterator, Self
 
@@ -65,17 +65,6 @@ class AlternativeStatus(Enum):
     
     def __str__(self) -> str:
         return self.value
-
-
-class OperationType(Enum):
-    """Types of operations that can be performed on alternatives."""
-    SET = auto()
-    AUTO = auto()
-    INSTALL = auto()
-    REMOVE = auto()
-    REMOVE_ALL = auto()
-    QUERY = auto()
-    LIST = auto()
 
 
 # ============================================================================
@@ -630,25 +619,3 @@ class InstallRequest:
             New InstallRequest instance
         """
         return cls(name=name, link=link, path=path, priority=priority)
-
-
-# ============================================================================
-# History Types (for undo support)
-# ============================================================================
-
-@dataclass(frozen=True, slots=True)
-class HistoryEntry:
-    """A single entry in the operation history.
-    
-    Used for tracking changes and potentially implementing undo.
-    """
-    timestamp: float
-    operation: OperationType
-    name: str
-    old_value: str | None
-    new_value: str | None
-    success: bool
-    
-    def __str__(self) -> str:
-        status = "✓" if self.success else "✗"
-        return f"[{status}] {self.operation.name} {self.name}: {self.old_value} → {self.new_value}"
