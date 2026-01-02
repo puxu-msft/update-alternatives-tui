@@ -139,11 +139,7 @@ class AlternativeDetailPanel(Static):
         """
         lines: list[str] = []
         
-        # Header with name prominently displayed
-        lines.append(f"[bold cyan]━━━ {escape_markup(group.name)} ━━━[/bold cyan]")
-        lines.append("")
-        
-        # Basic info in a structured layout
+        # Basic info in a structured layout (name is already shown in list)
         lines.append(f"[bold]Link:[/bold]    {escape_markup(group.link)}")
         
         # Status with color and explanation
@@ -166,23 +162,24 @@ class AlternativeDetailPanel(Static):
             is_current = alt.path == group.current
             is_best = alt.path == group.best
             
-            # Build markers
-            markers: list[str] = []
+            # Build marker (only show current indicator)
             if is_current:
-                markers.append(f"[{StatusColor.SUCCESS}]{StatusIndicator.CURRENT}[/{StatusColor.SUCCESS}]")
-            if is_best:
-                markers.append(f"[{StatusColor.INFO}]{StatusIndicator.BEST}[/{StatusColor.INFO}]")
-            marker_str = " ".join(markers) if markers else "  "
-            
-            # Format alternative line with index (escape path)
-            escaped_path = escape_markup(alt.path)
-            priority_color = StatusColor.SUCCESS if is_best else StatusColor.MUTED
-            if is_current:
-                lines.append(f"  {marker_str} [bold]{escaped_path}[/bold]")
-                lines.append(f"       [{priority_color}]priority: {alt.priority}[/{priority_color}]")
+                marker_str = f"[{StatusColor.SUCCESS}]{StatusIndicator.CURRENT}[/{StatusColor.SUCCESS}]"
             else:
-                lines.append(f"  {marker_str} {escaped_path}")
-                lines.append(f"       [{priority_color}]priority: {alt.priority}[/{priority_color}]")
+                marker_str = " "
+            
+            # Format alternative line with priority on same line
+            # Highlight best priority in bold green
+            escaped_path = escape_markup(alt.path)
+            if is_best:
+                priority_str = f"[bold {StatusColor.SUCCESS}]({alt.priority})[/bold {StatusColor.SUCCESS}]"
+            else:
+                priority_str = f"[{StatusColor.MUTED}]({alt.priority})[/{StatusColor.MUTED}]"
+            
+            if is_current:
+                lines.append(f"  {marker_str} [bold]{escaped_path}[/bold] {priority_str}")
+            else:
+                lines.append(f"  {marker_str} {escaped_path} {priority_str}")
             
             # Show slaves if any
             if alt.has_slaves():
@@ -198,7 +195,7 @@ class AlternativeDetailPanel(Static):
         
         # Legend at the bottom
         lines.append("")
-        lines.append(f"[{StatusColor.MUTED}]Legend: [{StatusColor.SUCCESS}]{StatusIndicator.CURRENT}[/{StatusColor.SUCCESS}]=current [{StatusColor.INFO}]{StatusIndicator.BEST}[/{StatusColor.INFO}]=best[/{StatusColor.MUTED}]")
+        lines.append(f"[{StatusColor.MUTED}]Legend: [{StatusColor.SUCCESS}]{StatusIndicator.CURRENT}[/{StatusColor.SUCCESS}]=current, [bold {StatusColor.SUCCESS}](N)[/bold {StatusColor.SUCCESS}]=highest priority[/{StatusColor.MUTED}]")
         
         return "\n".join(lines)
     

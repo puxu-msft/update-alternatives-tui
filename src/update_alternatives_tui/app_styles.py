@@ -59,11 +59,16 @@ Screen {
 
 #alternatives-list {
     height: 1fr;
+    scrollbar-gutter: stable;
 }
 
 #detail-panel {
     height: 1fr;
     overflow-y: auto;
+}
+
+#detail-scroll {
+    scrollbar-gutter: stable;
 }
 
 #raw-output {

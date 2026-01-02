@@ -257,8 +257,14 @@ class UpdateAlternativesTUI(App):
         before mounting new ones, preventing DuplicateIds errors.
         
         The exclusive=True ensures only one refresh runs at a time.
+        
+        After refreshing, restores the previous selection if it still exists
+        in the filtered list, and reloads the details panel.
         """
         list_view = self.query_one("#alternatives-list", ListView)
+        
+        # Remember current selection before clearing
+        previous_selection = self.current_selection
         
         # Await the removal to ensure it completes before mounting new items
         await list_view.remove_children()
@@ -266,9 +272,11 @@ class UpdateAlternativesTUI(App):
         # Get selections for status indicators
         selections = self.service.get_selections()
         
-        # Build all items first
+        # Build all items first, tracking index of previous selection
         items: list[ListItem] = []
-        for name in self.filtered_alternatives:
+        restore_index: int | None = None
+        
+        for i, name in enumerate(self.filtered_alternatives):
             info = selections.get(name)
             if info:
                 if info.is_auto:
@@ -286,10 +294,20 @@ class UpdateAlternativesTUI(App):
             )
             item.data = name  # Store original name for lookup
             items.append(item)
+            
+            # Track position of previously selected item
+            if name == previous_selection:
+                restore_index = i
         
         # Mount all items at once
         if items:
             list_view.mount(*items)
+            
+            # Restore previous selection if it exists in current filtered list
+            if restore_index is not None:
+                list_view.index = restore_index
+                # Setting index doesn't trigger Highlighted event, so manually reload details
+                self._load_alternative_details(previous_selection)
     
     @work(thread=True)
     def _load_alternative_details(self, name: str) -> None:
@@ -340,9 +358,9 @@ class UpdateAlternativesTUI(App):
     # Event Handlers - Using @on decorator with CSS selectors (Best Practice)
     # ========================================================================
     
-    @on(ListView.Selected, "#alternatives-list")
-    def on_alternative_selected(self, event: ListView.Selected) -> None:
-        """Handle selection of an alternative."""
+    @on(ListView.Highlighted, "#alternatives-list")
+    def on_alternative_highlighted(self, event: ListView.Highlighted) -> None:
+        """Handle highlighting (cursor movement) of an alternative."""
         if event.item:
             # Get original name from data attribute
             name = getattr(event.item, "data", None)
@@ -497,7 +515,8 @@ class UpdateAlternativesTUI(App):
                 self._show_status(cmd_result.message, is_error=not cmd_result.success)
                 
                 if cmd_result.success:
-                    self._load_alternative_details(group.name)
+                    # Refresh list which will restore highlight and trigger detail reload
+                    self.load_alternatives()
             else:
                 # User cancelled
                 self._show_status("Selection cancelled")
@@ -530,7 +549,7 @@ class UpdateAlternativesTUI(App):
                 self._show_status(result.message, is_error=not result.success)
                 
                 if result.success:
-                    self._load_alternative_details(group.name)
+                    # Refresh list which will restore highlight and trigger detail reload
                     self.load_alternatives()
             else:
                 self._show_status("Auto mode cancelled")
@@ -556,7 +575,8 @@ class UpdateAlternativesTUI(App):
                         name=result["name"],
                         link=result["link"],
                         path=result["path"],
-                        priority=result["priority"]
+                        priority=result["priority"],
+                        slaves=result.get("slaves", [])
                     )
                     cmd_result = self.service.install(request)
                     self._show_status(
@@ -601,7 +621,7 @@ class UpdateAlternativesTUI(App):
                 )
                 
                 if cmd_result.success:
-                    self._load_alternative_details(group.name)
+                    # Refresh list which will restore highlight and trigger detail reload
                     self.load_alternatives()
             else:
                 self._show_status("Delete cancelled")
@@ -652,10 +672,70 @@ class UpdateAlternativesTUI(App):
 # Entry Point
 # ============================================================================
 
+def _reset_terminal() -> None:
+    """Reset terminal to a sane state.
+    
+    This is called on exit to ensure the terminal is usable even if
+    the application crashed or was interrupted.
+    """
+    import sys
+    import os
+    
+    # Only reset if we're connected to a real terminal
+    if not sys.stdout.isatty():
+        return
+    
+    try:
+        # Use stty to reset terminal to sane defaults
+        # This handles most cases of corrupted terminal state
+        os.system("stty sane 2>/dev/null")
+        
+        # Show cursor (in case it was hidden)
+        sys.stdout.write("\033[?25h")
+        
+        # Reset character attributes
+        sys.stdout.write("\033[0m")
+        
+        # Clear any alternate screen buffer and switch back to main screen
+        sys.stdout.write("\033[?1049l")
+        
+        sys.stdout.flush()
+    except Exception:
+        # Silently ignore errors during cleanup
+        pass
+
+
 def main() -> None:
     """Entry point for the TUI application."""
-    app = UpdateAlternativesTUI()
-    app.run()
+    import atexit
+    import signal
+    
+    # Register terminal reset on normal exit
+    atexit.register(_reset_terminal)
+    
+    # Handle signals that might terminate the process
+    def signal_handler(signum: int, frame: object) -> None:
+        _reset_terminal()
+        raise SystemExit(128 + signum)
+    
+    # Register signal handlers for common termination signals
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, signal_handler)
+        except (OSError, ValueError):
+            # Signal not available on this platform
+            pass
+    
+    try:
+        app = UpdateAlternativesTUI()
+        app.run()
+    except Exception:
+        # Ensure terminal is reset even on unhandled exceptions
+        _reset_terminal()
+        raise
+    finally:
+        # Final cleanup
+        _reset_terminal()
 
 
 if __name__ == "__main__":

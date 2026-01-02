@@ -86,11 +86,6 @@ INPUT_DIALOG_CSS = """
 .input-row Input {
     width: 1fr;
 }
-
-#install-tip {
-    margin-top: 1;
-    padding: 0 1;
-}
 """
 
 # ============================================================================

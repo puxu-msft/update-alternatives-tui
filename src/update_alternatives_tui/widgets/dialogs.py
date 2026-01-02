@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 from rich.text import Text
@@ -196,10 +196,127 @@ class InputDialog(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+# ============================================================================
+# Install Dialog CSS
+# ============================================================================
+
+INSTALL_DIALOG_CSS = """
+InstallDialog .dialog-container {
+    width: 100%;
+    height: 100%;
+    border: thick $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+InstallDialog .dialog-title {
+    text-align: center;
+    text-style: bold;
+    color: $primary;
+    height: 1;
+}
+
+InstallDialog .dialog-subtitle {
+    text-align: center;
+    color: $text-muted;
+    height: 1;
+    margin-bottom: 1;
+}
+
+.install-scroll {
+    height: 1fr;
+    padding: 0 1;
+}
+
+.section-header {
+    text-style: bold;
+    color: $primary;
+    margin: 1 0 0 0;
+    height: 1;
+}
+
+.form-field {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+.form-label {
+    height: 1;
+    color: $text;
+    padding: 0;
+}
+
+.form-field Input {
+    width: 100%;
+    margin: 0;
+}
+
+.slave-entry {
+    height: auto;
+    margin: 0 0 1 0;
+    padding: 1;
+    border: round $surface-lighten-1;
+}
+
+.slave-entry-header {
+    height: 1;
+    margin-bottom: 1;
+}
+
+.slave-number {
+    width: auto;
+    text-style: bold;
+    color: $secondary;
+}
+
+.slave-remove-btn {
+    min-width: 6;
+    height: 1;
+}
+
+.slave-field {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+.slave-label {
+    height: 1;
+    color: $text-muted;
+}
+
+.add-slave-btn {
+    margin: 1 0;
+}
+
+#no-slaves-hint {
+    margin: 1 0;
+    color: $text-muted;
+    height: auto;
+}
+
+#install-tip {
+    margin: 1 0;
+    color: $text-muted;
+    height: auto;
+}
+
+InstallDialog .dialog-buttons {
+    height: auto;
+    align: center middle;
+    padding: 1 0 0 0;
+}
+
+InstallDialog .dialog-buttons Button {
+    margin: 0 1;
+}
+"""
+
+
 class InstallDialog(ModalScreen[dict | None]):
-    """Dialog for installing a new alternative.
+    """Dialog for installing a new alternative with slave support.
     
-    Collects name, link, path, and priority for a new alternative.
+    Collects name, link, path, priority, and optional slave links
+    for a new alternative.
     
     Example:
         def on_install(result: dict | None) -> None:
@@ -209,7 +326,7 @@ class InstallDialog(ModalScreen[dict | None]):
         self.push_screen(InstallDialog(name="editor", link="/usr/bin/editor"), on_install)
     """
     
-    DEFAULT_CSS = DIALOG_CSS + INPUT_DIALOG_CSS
+    DEFAULT_CSS = DIALOG_CSS + INPUT_DIALOG_CSS + INSTALL_DIALOG_CSS
     
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "cancel", "Cancel"),
@@ -226,47 +343,62 @@ class InstallDialog(ModalScreen[dict | None]):
         super().__init__()
         self.alt_name = name
         self.alt_link = link
+        self._slave_count = 0
     
     def compose(self) -> ComposeResult:
         with Container(classes="dialog-container"):
             yield Static("Install New Alternative", classes="dialog-title")
             yield Static(
-                "[dim]Provide details for the new alternative entry[/dim]",
+                "Provide details for the new alternative entry",
                 classes="dialog-subtitle"
             )
-            with Vertical(classes="input-container"):
-                with Horizontal(classes="input-row"):
-                    yield Label("Name:", classes="input-label")
+            with VerticalScroll(classes="install-scroll"):
+                # Main alternative section
+                yield Static("Main Alternative", classes="section-header")
+                
+                with Vertical(classes="form-field"):
+                    yield Static("Name", classes="form-label")
                     yield Input(
                         value=self.alt_name,
                         id="name-input",
                         placeholder="e.g., python, editor"
                     )
-                with Horizontal(classes="input-row"):
-                    yield Label("Link:", classes="input-label")
+                with Vertical(classes="form-field"):
+                    yield Static("Link (symlink path)", classes="form-label")
                     yield Input(
                         value=self.alt_link,
                         id="link-input",
-                        placeholder="symlink path, e.g., /usr/bin/python"
+                        placeholder="e.g., /usr/bin/python"
                     )
-                with Horizontal(classes="input-row"):
-                    yield Label("Path:", classes="input-label")
+                with Vertical(classes="form-field"):
+                    yield Static("Path (target binary)", classes="form-label")
                     yield Input(
                         id="path-input",
-                        placeholder="target binary, e.g., /usr/bin/python3.11"
+                        placeholder="e.g., /usr/bin/python3.11"
                     )
-                with Horizontal(classes="input-row"):
-                    yield Label("Priority:", classes="input-label")
+                with Vertical(classes="form-field"):
+                    yield Static("Priority", classes="form-label")
                     yield Input(
                         value="50",
                         id="priority-input",
-                        placeholder="integer (higher = preferred in auto)"
+                        placeholder="integer, higher = preferred in auto mode"
                     )
+                
+                # Slave links section
+                yield Static("Slave Links (optional)", classes="section-header")
+                yield Static(
+                    "[dim]Slaves are additional symlinks managed together with the main alternative.[/dim]",
+                    id="no-slaves-hint"
+                )
+                yield Container(id="slaves-container")
+                yield Button("+ Add Slave Link", variant="primary", id="add-slave", classes="add-slave-btn")
+                
                 yield Static(
                     "[dim]Tip: Higher priority alternatives are selected in auto mode. "
-                    "Use negative values for low-priority fallbacks.[/dim]",
+                    "Slaves are useful for related files like man pages.[/dim]",
                     id="install-tip"
                 )
+            
             with Horizontal(classes="dialog-buttons"):
                 yield Button("Install", variant="success", id="install")
                 yield Button("Cancel", variant="default", id="cancel")
@@ -277,6 +409,63 @@ class InstallDialog(ModalScreen[dict | None]):
             self.query_one("#name-input", Input).focus()
         else:
             self.query_one("#path-input", Input).focus()
+    
+    @on(Button.Pressed, "#add-slave")
+    def on_add_slave(self) -> None:
+        """Add a new slave link entry."""
+        self._slave_count += 1
+        slave_id = self._slave_count
+        
+        slave_widget = Container(
+            Horizontal(
+                Static(f"Slave #{slave_id}", classes="slave-number"),
+                Button("✕", variant="error", id=f"remove-slave-{slave_id}", classes="slave-remove-btn"),
+                classes="slave-entry-header"
+            ),
+            Vertical(
+                Static("Name", classes="slave-label"),
+                Input(id=f"slave-name-{slave_id}", placeholder="e.g., editor.1.gz"),
+                classes="slave-field"
+            ),
+            Vertical(
+                Static("Link", classes="slave-label"),
+                Input(id=f"slave-link-{slave_id}", placeholder="e.g., /usr/share/man/man1/editor.1.gz"),
+                classes="slave-field"
+            ),
+            Vertical(
+                Static("Path", classes="slave-label"),
+                Input(id=f"slave-path-{slave_id}", placeholder="e.g., /usr/share/man/man1/vim.1.gz"),
+                classes="slave-field"
+            ),
+            id=f"slave-entry-{slave_id}",
+            classes="slave-entry"
+        )
+        
+        container = self.query_one("#slaves-container", Container)
+        container.mount(slave_widget)
+        
+        # Hide hint if first slave added
+        hint = self.query_one("#no-slaves-hint", Static)
+        hint.display = False
+        
+        # Focus the name input
+        self.query_one(f"#slave-name-{slave_id}", Input).focus()
+    
+    @on(Button.Pressed)
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        button_id = event.button.id or ""
+        
+        if button_id.startswith("remove-slave-"):
+            slave_num = button_id.replace("remove-slave-", "")
+            entry = self.query_one(f"#slave-entry-{slave_num}", Container)
+            entry.remove()
+            
+            # Show hint if no slaves left
+            container = self.query_one("#slaves-container", Container)
+            if not container.children:
+                hint = self.query_one("#no-slaves-hint", Static)
+                hint.display = True
     
     @on(Button.Pressed, "#install")
     def on_install(self) -> None:
@@ -335,16 +524,64 @@ class InstallDialog(ModalScreen[dict | None]):
             self.query_one("#priority-input", Input).focus()
             return
         
+        # Collect slave links
+        slaves: list[tuple[str, str, str]] = []
+        container = self.query_one("#slaves-container", Container)
+        for entry in container.children:
+            if not isinstance(entry, Container):
+                continue
+            entry_id = entry.id or ""
+            if not entry_id.startswith("slave-entry-"):
+                continue
+            
+            slave_num = entry_id.replace("slave-entry-", "")
+            try:
+                slave_name = self.query_one(f"#slave-name-{slave_num}", Input).value.strip()
+                slave_link = self.query_one(f"#slave-link-{slave_num}", Input).value.strip()
+                slave_path = self.query_one(f"#slave-path-{slave_num}", Input).value.strip()
+            except Exception:
+                continue
+            
+            # Skip empty slave entries
+            if not slave_name and not slave_link and not slave_path:
+                continue
+            
+            # Validate slave entry
+            if not slave_name:
+                self.notify(f"Slave #{slave_num}: Name is required", severity="error")
+                self.query_one(f"#slave-name-{slave_num}", Input).focus()
+                return
+            if not slave_link:
+                self.notify(f"Slave #{slave_num}: Link is required", severity="error")
+                self.query_one(f"#slave-link-{slave_num}", Input).focus()
+                return
+            if not slave_path:
+                self.notify(f"Slave #{slave_num}: Path is required", severity="error")
+                self.query_one(f"#slave-path-{slave_num}", Input).focus()
+                return
+            if not slave_link.startswith("/"):
+                self.notify(f"Slave #{slave_num}: Link must be absolute path", severity="error")
+                self.query_one(f"#slave-link-{slave_num}", Input).focus()
+                return
+            if not slave_path.startswith("/"):
+                self.notify(f"Slave #{slave_num}: Path must be absolute path", severity="error")
+                self.query_one(f"#slave-path-{slave_num}", Input).focus()
+                return
+            
+            slaves.append((slave_name, slave_link, slave_path))
+        
         self.dismiss({
             "name": name,
             "link": link,
             "path": path,
-            "priority": priority
+            "priority": priority,
+            "slaves": slaves
         })
     
     def action_cancel(self) -> None:
         """Handle escape key."""
         self.dismiss(None)
+
 
 class HelpDialog(ModalScreen[None]):
     """Dialog showing keyboard shortcuts and help information.
@@ -472,18 +709,13 @@ class SelectAlternativeDialog(ModalScreen[str | None]):
                     is_best = alt.path == self.group.best
                     self._option_paths.append(alt.path)
                     
-                    # Build label with indicators
-                    indicator = ""
-                    if is_current:
-                        indicator = f"[green]{StatusIndicator.CURRENT}[/green] "
-                    elif is_best:
-                        indicator = f"[cyan]{StatusIndicator.BEST}[/cyan] "
-                    else:
-                        indicator = "  "  # Align spacing
+                    # Build label with current indicator only
+                    indicator = f"[green]{StatusIndicator.CURRENT}[/green] " if is_current else "  "
                     
-                    # Format: number + indicator + path + priority
+                    # Format: number + indicator + path + priority (highlight best priority)
                     num_hint = f"[dim]{idx}.[/dim] " if idx <= 9 else "   "
-                    label_text = f"{num_hint}{indicator}{escape_markup(alt.path)} [dim](pri:{alt.priority})[/dim]"
+                    priority_str = f"[bold green]({alt.priority})[/bold green]" if is_best else f"[dim]({alt.priority})[/dim]"
+                    label_text = f"{num_hint}{indicator}{escape_markup(alt.path)} {priority_str}"
                     
                     # Create button
                     button = Button(

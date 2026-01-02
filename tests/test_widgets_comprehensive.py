@@ -418,12 +418,12 @@ class TestDetailPanelFormatting:
         output = panel._format_group(simple_group)
         assert StatusIndicator.CURRENT in output
 
-    def test_format_group_shows_best_indicator(self, simple_group: AlternativeGroup) -> None:
-        """Test that best alternative is indicated."""
+    def test_format_group_highlights_best_priority(self, simple_group: AlternativeGroup) -> None:
+        """Test that best alternative priority is highlighted."""
         panel = AlternativeDetailPanel()
         output = panel._format_group(simple_group)
-        # Best and current are the same in simple_group
-        assert StatusIndicator.BEST in output or StatusIndicator.CURRENT in output
+        # Best priority should be highlighted with bold green
+        assert "bold" in output and "50" in output
 
     def test_format_group_with_slaves(self, complex_group: AlternativeGroup) -> None:
         """Test that slaves are shown."""
@@ -927,6 +927,7 @@ class TestInstallDialogCreation:
         dialog = InstallDialog()
         assert dialog.alt_name == ""
         assert dialog.alt_link == ""
+        assert dialog._slave_count == 0
 
     def test_creation_with_name(self) -> None:
         """Test creating with pre-filled name."""
@@ -956,10 +957,10 @@ class TestInstallDialogBehavior:
                     self.result = result
                 self.push_screen(InstallDialog(), callback)
 
-        async with TestApp().run_test() as pilot:
+        async with TestApp().run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             cancel_btn = pilot.app.screen.query_one("#cancel", Button)
-            await pilot.click(cancel_btn)
+            cancel_btn.press()
             await pilot.pause()
             assert pilot.app.result is None
 
